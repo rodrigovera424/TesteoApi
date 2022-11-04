@@ -1,49 +1,35 @@
-// import express from "express"
-import cluster from "cluster"
-import { MODE } from "./src/config/index.js"
-import os from "os"
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser')
+const personaRoutes = require('./api/routes/persona');
+const mongoose = require("mongoose");
+const { Server: HttpServer } = require("http");
+const port = process.env.PORT || 3000;
 
-const numCPUs = os.cpus().length
+mongoose
+  .connect("mongodb+srv://test:123456alison@cluster0.piknkma.mongodb.net/?retryWrites=true&w=majority")
+  .then(() => console.log("DB is connected"))
+  .catch((err) => console.log(err));
 
-import app from "./src/middleware/index.js"
+const app = express();
 
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: false }))
 
-if (MODE === "cluster") {
-    if (cluster.isPrimary) {
-        // logger.info(`num cpus: ${numCPUs}`);
-        // logger.info(`Primary PID: ${process.pid}`);
-        console.log("num cpus:", numCPUs);
-        console.log("Primary PID:", process.pid);
+// parse application/json
+app.use(bodyParser.json())
 
-        for (let i = 0; i < numCPUs; i++) {
-            cluster.fork();
-        }
-        cluster.on("exit", (worker) => {
-            // logger.info(`Worker finalizó ${new Date().toLocaleString()}`);
-            console.log(`Worker finalizó ${new Date().toLocaleString()}`);
-            cluster.fork();
-        });
-    } else {
-        const PORT = process.env.PORT || 8080
+const httpServer = new HttpServer(app);
 
-        const server = app.listen(PORT, () => {
-            // logger.info(`Servidor escuchando en el puerto ${server.address().port} - PID ${process.pid}`)
-            console.log(`Servidor escuchando en el puerto ${server.address().port} - PID ${process.pid}`)
-        })
-        server.on("error", error => console.log(`Error en servidor: ${error}`))
-        // server.on("error", error => logger.error(`Error en servidor: ${error}`))
-
-    }
-} else {
-    // PORT
-    const PORT = process.env.PORT || 8080
-
-    const server = app.listen(PORT, () => {
-        // logger.info(`Servidor escuchando en el puerto ${server.address().port}`)
-        // logger.info('http://localhost:' + server.address().port)
-        console.log(`Servidor escuchando en el puerto ${server.address().port}`)
-        console.log('http://localhost:' + server.address().port)
-    })
-    server.on("error", error => console.log(`Error en servidor: ${error}`))
-    // server.on("error", error => logger.error(`Error en servidor: ${error}`))
+function errorHandler(err, req, res, next) {
+    console.error(err);
+    res.status(500).send(err.stack);
 }
+
+app.use("/api/persona", personaRoutes);
+
+app.use(errorHandler);
+
+httpServer.listen(port, () => {
+    console.log(`Servidor http escuchando en el puerto ${port}`);
+});
